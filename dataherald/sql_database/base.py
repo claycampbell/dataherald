@@ -40,7 +40,19 @@ class SQLDatabase(LangchainSQLDatabase):
         **kwargs: Keyword arguments to pass to langchain SQLDatabase.
 
     """
+    @classmethod
+    def get_sql_engine_from_uri(cls, connection_uri: str) -> "SQLDatabase":
+            """
+            Get SQL engine from a direct connection URI.
+            """
+            logger.info(f"Connecting to DB using URI: {connection_uri}")
+            
+            # Create an engine directly from the provided URI
+            engine = create_engine(connection_uri)
 
+            # Here, you might want to do some additional setup or validation if necessary
+
+            return cls(engine)
     @property
     def engine(self) -> Engine:
         """Return SQL Alchemy engine."""
@@ -62,18 +74,31 @@ class SQLDatabase(LangchainSQLDatabase):
 
     @classmethod
     def get_sql_engine(cls, database_info: DatabaseConnection) -> "SQLDatabase":
-        logger.info(f"Connecting db: {database_info.alias}")
+        logger.info(f"Attempting to connect to db: {database_info.alias}")
+
+        # Check for cached connections
         if database_info.alias in DBConnections.db_connections:
+            logger.info(f"Using cached connection for: {database_info.alias}")
             return DBConnections.db_connections[database_info.alias]
 
         fernet_encrypt = FernetEncrypt()
-        if database_info.use_ssh:
-            engine = cls.from_uri_ssh(database_info)
+
+        try:
+            if database_info.use_ssh:
+                engine = cls.from_uri_ssh(database_info)
+                DBConnections.add(database_info.alias, engine)
+                return engine
+
+            decrypted_uri = unquote(fernet_encrypt.decrypt(database_info.uri))
+            logger.info(f"Decrypted URI: {decrypted_uri}")  # Ensure this prints the correct URI
+
+            engine = cls.from_uri(decrypted_uri)
             DBConnections.add(database_info.alias, engine)
             return engine
-        engine = cls.from_uri(unquote(fernet_encrypt.decrypt(database_info.uri)))
-        DBConnections.add(database_info.alias, engine)
-        return engine
+
+        except Exception as e:
+            logger.error(f"Failed to establish connection: {str(e)}")
+            raise
 
     @classmethod
     def from_uri_ssh(cls, database_info: DatabaseConnection):

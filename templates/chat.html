@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat with Database</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+
+<div style="width: 500px; margin: 50px auto;">
+    <div id="chat-container" class="chat-container">
+        {% for message in chat_messages %}
+            <div class="chat-message chat-message-{{ message.type }}">
+                {{ message.content }}
+            </div>
+        {% endfor %}
+    </div>
+    <input type="text" id="question" style="width: 80%; margin-top: 10px;">
+    <button onclick="askQuestion()">Ask</button>
+</div>
+
+<script>
+function askQuestion() {
+    var question = $('#question').val();
+    $.post('/ask', {question: question}, function(data) {
+        $('#chat-container').append('<p>You: ' + question + '</p>');
+        if (data.status == 'OK') {
+            $('#chat-container').append('<p>Bot: ' + data.answer + '</p>');
+        } else {
+            $('#chat-container').append('<p>Error: ' + data.answer + '</p>');
+        }
+    });
+}
+</script>
+
+</body>
+</html>

@@ -54,18 +54,19 @@ class FastAPI(API):
     @override
     def scan_db(self, scanner_request: ScannerRequest) -> bool:
         """Takes a db_alias and scan all the tables columns"""
-        db_connection = self.storage.find_one(
-            "database_connection", {"alias": scanner_request.db_alias}
-        )
-        if not db_connection:
-            raise HTTPException(status_code=404, detail="Database connection not found")
-        database_connection = DatabaseConnection(**db_connection)
+
+        # Hardcoded values for debugging
+        connection_uri = "postgresql+psycopg2://hakkoda:P%40ssw0rd@hakkoda.postgres.database.azure.com:5432/postgres"
+        
         try:
-            database = SQLDatabase.get_sql_engine(database_connection)
-        except Exception:
+            # You may need to modify the get_sql_engine method to accept a connection string directly
+            # or create a new method for this purpose.
+            database = SQLDatabase.get_sql_engine_from_uri(connection_uri)
+        except Exception as e:
+            logger.error(f"Error during db connection: {str(e)}")
             raise HTTPException(  # noqa: B904
                 status_code=400,
-                detail=f"Unable to connect to db: {scanner_request.db_alias}",
+                detail=f"Unable to connect to db: {scanner_request.db_alias}. Error: {str(e)}",
             )
 
         scanner = self.system.instance(Scanner)
@@ -95,12 +96,17 @@ class FastAPI(API):
         nl_question_repository = NLQuestionRepository(self.storage)
         user_question = nl_question_repository.insert(user_question)
 
-        db_connection = self.storage.find_one(
-            "database_connection", {"alias": question_request.db_alias}
-        )
-        if not db_connection:
-            raise HTTPException(status_code=404, detail="Database connection not found")
-        database_connection = DatabaseConnection(**db_connection)
+        # Hardcoded connection details
+        hardcoded_connection_uri = "postgresql+psycopg2://rootuser:root@hakkoda.postgres.database.azure.com:5432/postgres"
+        database_connection = DatabaseConnection(uri=hardcoded_connection_uri, alias=question_request.db_alias, use_ssh=False)
+
+        # Commented out the previous mechanism to fetch from storage
+        # db_connection = self.storage.find_one(
+        #     "database_connection", {"alias": question_request.db_alias}
+        # )
+        # if not db_connection:
+        #     raise HTTPException(status_code=404, detail="Database connection not found")
+        # database_connection = DatabaseConnection(**db_connection)
 
         context = context_store.retrieve_context_for_question(user_question)
         start_generated_answer = time.time()
