@@ -11,6 +11,7 @@ from sshtunnel import SSHTunnelForwarder
 
 from dataherald.sql_database.models.types import DatabaseConnection
 from dataherald.utils.encrypt import FernetEncrypt
+from dataherald.utils.s3 import S3
 
 logger = logging.getLogger(__name__)
 
@@ -82,23 +83,13 @@ class SQLDatabase(LangchainSQLDatabase):
             return DBConnections.db_connections[database_info.alias]
 
         fernet_encrypt = FernetEncrypt()
-
-        try:
-            if database_info.use_ssh:
-                engine = cls.from_uri_ssh(database_info)
-                DBConnections.add(database_info.alias, engine)
-                return engine
-
-            decrypted_uri = unquote(fernet_encrypt.decrypt(database_info.uri))
-            logger.info(f"Decrypted URI: {decrypted_uri}")  # Ensure this prints the correct URI
-
-            engine = cls.from_uri(decrypted_uri)
+        if database_info.use_ssh:
+            engine = cls.from_uri_ssh(database_info)
             DBConnections.add(database_info.alias, engine)
             return engine
-
-        except Exception as e:
-            logger.error(f"Failed to establish connection: {str(e)}")
-            raise
+        engine = cls.from_uri(unquote(fernet_encrypt.decrypt(database_info.uri)))
+        DBConnections.add(database_info.alias, engine)
+        return engine
 
     @classmethod
     def from_uri_ssh(cls, database_info: DatabaseConnection):
