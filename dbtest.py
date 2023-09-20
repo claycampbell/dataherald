@@ -98,7 +98,7 @@ def test_connection():
     ('Functional', 'Optimization Engine API (Multi-period)', 'The Optimization Engine API (Multi-period) allows users to execute multi-period optimization, with client provided data, to solve dynamic asset allocation problems', 'Content'),
     ('Functional', 'FactSet Portfolio Optimizer API', 'The FactSet Portfolio Optimizer (FPO) offers full multi-asset class portfolio optimization, balancing a client’s investment objectives within the confines of the established constraints within the investment strategy.', 'Analytics'),
     ('Functional', 'Formula API', 'Use FactSet’s flexible, formula-based API to retrieve data from almost all available content sets FactSet offers through FactSet\'s FQL and Screening formulas.', 'Functional'),
-     ('Functional', 'Time Series API for Digital Portals', 'Time series data, end-of-day or intraday, tick-by-tick or subsampled. Additional vendor-specific endpoints provide a modified interface for seamless integration with the ChartIQ chart library.', 'Functional'),
+    ('Functional', 'Time Series API for Digital Portals', 'Time series data, end-of-day or intraday, tick-by-tick or subsampled. Additional vendor-specific endpoints provide a modified interface for seamless integration with the ChartIQ chart library.', 'Functional'),
     ('Functional', 'Virtual Portfolio API for Digital Portals', 'Virtual portfolios empower self-directed investors to define, track and realize their mid- to long-term financial strategies', 'Functional'),
     ('Functional', 'Watchlist API for Digital Portals', 'Watchlists keeps track of users´ individual investment objectives in self-directed wealth management applications.', 'Utility'),
     ('Functional', 'Stocks API for Digital Portals', 'Search for equity instruments based on stock-specific parameters, request EOD benchmark key figures and selected fundamentals (end of fiscal year and potential daily updates).', 'Functional'),
@@ -128,7 +128,25 @@ def test_connection():
     ('Functional', 'Portfolio API', 'Through the Portfolio API, you can accomplish what-if analysis by uploading a paper portfolio to test out a new strategy or prospective opportunity.', 'Analytics'),
     ('Functional', 'Price Alerting API for Digital Portals', 'Basic Price Alerting deals with generation of alerts based on current price data. Users can define an upper or lower limit and choose on which price type those limit conditions apply.', 'Utility'),
     ('Functional', 'Stocks API for Digital Portals', 'Search for equity instruments based on stock-specific parameters, request EOD benchmark key figures and selected fundamentals (end of fiscal year and potential daily updates).', 'Functional'),
-    # ... continue with the next APIs ...
+    ('Functional', 'Time Series API for Digital Portals', 'Time series data, end-of-day or intraday, tick-by-tick or subsampled. Additional vendor-specific endpoints provide a modified interface for seamless integration with the ChartIQ chart library.', 'Functional'),
+    ('Functional', 'Virtual Portfolio API for Digital Portals', 'Virtual portfolios empower self-directed investors to define, track and realize their mid- to long-term financial strategies', 'Functional'),
+    ('Functional', 'Watchlist API for Digital Portals', 'Watchlists keeps track of users´ individual investment objectives in self-directed wealth management applications.', 'Functional'),
+    ('Functional', 'FactSet Concordance API', 'The FactSet Concordance API helps our users discover the respective FactSet Entity & People identifier for a specific entity based off of a list of provided corresponding attributes, such as Names, URLs, and Location.', 'Content'),
+    ('Functional', 'Formula API', 'Use FactSet’s flexible, formula-based API to retrieve data from almost all available content sets FactSet offers through FactSet\'s FQL and Screening formulas.', 'Content'),
+    ('Functional', 'Open:FactSet Marketplace API', 'Access FactSet’s comprehensive catalog of Data Feeds, APIs and Technology Solutions available on the Open:FactSet Marketplace.', 'Connected Recipes'),
+    ('Functional', 'FactSet Trading API', 'This Trading API gives programmatic access to FactSet\'s trading platform', 'Analytics'),
+    ('Functional', 'Time Series API for Digital Portals', 'Time series data, end-of-day or intraday, tick-by-tick or subsampled. Additional vendor-specific endpoints provide a modified interface for seamless integration with the ChartIQ chart library.', 'Functional'),
+    ('Functional', 'Watchlist API for Digital Portals', 'Watchlists keeps track of users´ individual investment objectives in self-directed wealth management applications.', 'Functional'),
+    ('Functional', 'FactSet Concordance API', 'The FactSet Concordance API helps our users discover the respective FactSet Entity & People identifier for a specific entity based off of a list of provided corresponding attributes, such as Names, URLs, and Location.', 'Content'),
+    ('Functional', 'ID Lookup API', 'FactSet Identifier Lookup API exposes the service that powers the search functionality in FactSet WorkStation and FactSet Web. Clients can leverage this API for their search functionality to return tickers, entity names, and other identifiers…', 'Utility'),
+    ('Functional', 'FactSet Tick History API', 'Tick History provides dynamic access to historical tick data for a specific security for specific dates or date range.', 'Content'),
+    ('Functional', 'Price Alerting API for Digital Portals', 'Basic Price Alerting deals with generation of alerts based on current price data. Users can define an upper or lower limit and choose on which price type those limit conditions apply.', 'Utility'),
+    ('Functional', 'FactSet Digital Cards', 'The FactSet Digital Cards API provides quick access to key company information and market data in an easily consumable and sharable format.', 'Content'),
+    ('Functional', 'FactSet Programmatic Environment API', 'FactSet Programmatic Environment API', 'Analytics'),
+    ('Functional', 'FactSet Search Answers', 'The FactSet Search Answers API provides answers to search queries, reflecting the data shown within FactSet Search Answers.', 'Utility'),
+    ('Functional', 'News API for Digital Portals', 'Retrieve news by category, identifier, and keyword, for a specific date or range of dates. Endpoints can be subscribed for streamed updates.', 'Functional'),
+    ('Functional', 'FactSet Prices API', 'Gain access to comprehensive global coverage for equity prices, returns, volume, shares, splits, and dividends. Security types include Common Stock, ADR, GDR, Preferred, Closed-ended Fund, Exchange Traded Fund, Unit, Open-ended Fund, Exchange…', 'Content')
+    ]
         for data in apis_data:
             cursor.execute("""
             INSERT INTO factset_apis (category, name, description, type)
