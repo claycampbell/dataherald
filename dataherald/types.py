@@ -1,10 +1,23 @@
-# from datetime import datetime add this later
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel
+from bson.errors import InvalidId
+from bson.objectid import ObjectId
+from pydantic import BaseModel, validator
 
 from dataherald.sql_database.models.types import SSHSettings
+
+
+class DBConnectionValidation(BaseModel):
+    db_connection_id: str
+
+    @validator("db_connection_id")
+    def object_id_validation(cls, v: str):
+        try:
+            ObjectId(v)
+        except InvalidId:
+            raise ValueError("Must be a valid ObjectId")  # noqa: B904
+        return v
 
 
 class UpdateQueryRequest(BaseModel):
@@ -12,6 +25,7 @@ class UpdateQueryRequest(BaseModel):
 
 
 class ExecuteTempQueryRequest(BaseModel):
+    query_id: str
     sql_query: str
 
 
@@ -23,20 +37,19 @@ class SQLQueryResult(BaseModel):
 class NLQuery(BaseModel):
     id: Any
     question: str
-    db_alias: str
+    db_connection_id: str
 
 
-class GoldenRecordRequest(BaseModel):
+class GoldenRecordRequest(DBConnectionValidation):
     question: str
     sql_query: str
-    db_alias: str
 
 
 class GoldenRecord(BaseModel):
     id: Any
     question: str
     sql_query: str
-    db_alias: str
+    db_connection_id: str
 
 
 class SQLGenerationStatus(Enum):
@@ -52,24 +65,13 @@ class NLQueryResponse(BaseModel):
     intermediate_steps: list[str] | None = None
     sql_query: str
     sql_query_result: SQLQueryResult | None
-    sql_generation_status: str = "NONE"
+    sql_generation_status: str = "INVALID"
     error_message: str | None
     exec_time: float | None = None
     total_tokens: int | None = None
     total_cost: float | None = None
     confidence_score: float | None = None
     # date_entered: datetime = datetime.now() add this later
-
-
-class ScannedDBTable(BaseModel):
-    id: str
-    name: str
-    columns: list[str]
-
-
-class ScannedDBResponse(BaseModel):
-    db_alias: str
-    tables: list[ScannedDBTable]
 
 
 class SupportedDatabase(Enum):
@@ -80,18 +82,16 @@ class SupportedDatabase(Enum):
     BIGQUERY = "BIGQUERY"
 
 
-class QuestionRequest(BaseModel):
+class QuestionRequest(DBConnectionValidation):
     question: str
-    db_alias: str
 
 
-class ScannerRequest(BaseModel):
-    db_alias: str
-    table_name: str | None
+class ScannerRequest(DBConnectionValidation):
+    table_names: list[str] | None
 
 
 class DatabaseConnectionRequest(BaseModel):
-    db_alias: str
+    alias: str
     use_ssh: bool = False
     connection_uri: str | None
     path_to_credentials_file: str | None

@@ -2,11 +2,14 @@ import datetime
 import difflib
 import logging
 import time
+from functools import wraps
 from typing import Any, Callable, Dict, List
 
 import numpy as np
 import openai
 import pandas as pd
+import sqlalchemy
+from google.api_core.exceptions import GoogleAPIError
 from langchain.agents.agent import AgentExecutor
 from langchain.agents.agent_toolkits.base import BaseToolkit
 from langchain.agents.mrkl.base import ZeroShotAgent
@@ -21,13 +24,15 @@ from langchain.schema import AgentAction
 from langchain.tools.base import BaseTool
 from overrides import override
 from pydantic import BaseModel, Extra, Field
+from sqlalchemy import MetaData
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql import func
 
 from dataherald.context_store import ContextStore
 from dataherald.db import DB
 from dataherald.db_scanner.models.types import TableSchemaDetail
 from dataherald.db_scanner.repository.base import DBScannerRepository
-from dataherald.sql_database.base import SQLDatabase
+from dataherald.sql_database.base import SQLDatabase, SQLInjectionError
 from dataherald.sql_database.models.types import (
     DatabaseConnection,
 )
@@ -83,31 +88,37 @@ Thought: I should Collect examples of Question/SQL pairs to identify possibly re
 {agent_scratchpad}"""  # noqa: E501
 
 
-def catch_exceptions(fn: Callable[[str], str]) -> Callable[[str], str]:
-    def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: PLR0911
-        try:
-            return fn(*args, **kwargs)
-        except openai.error.APIError as e:
-            # Handle API error here, e.g. retry or log
-            return f"OpenAI API returned an API Error: {e}"
-        except openai.error.APIConnectionError as e:
-            # Handle connection error here
-            return f"Failed to connect to OpenAI API: {e}"
-        except openai.error.RateLimitError as e:
-            # Handle rate limit error (we recommend using exponential backoff)
-            return f"OpenAI API request exceeded rate limit: {e}"
-        except openai.error.Timeout as e:
-            # Handle timeout error (we recommend using exponential backoff)
-            return f"OpenAI API request timed out: {e}"
-        except openai.error.ServiceUnavailableError as e:
-            # Handle service unavailable error (we recommend using exponential backoff)
-            return f"OpenAI API service unavailable: {e}"
-        except openai.error.InvalidRequestError as e:
-            return f"OpenAI API request was invalid: {e}"
-        except SQLAlchemyError as e:
-            return f"An unknown error occurred: {e}"
+def catch_exceptions():  # noqa: C901
+    def decorator(fn: Callable[[str], str]) -> Callable[[str], str]:  # noqa: C901
+        @wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: PLR0911
+            try:
+                return fn(*args, **kwargs)
+            except openai.error.APIError as e:
+                # Handle API error here, e.g. retry or log
+                return f"OpenAI API returned an API Error: {e}"
+            except openai.error.APIConnectionError as e:
+                # Handle connection error here
+                return f"Failed to connect to OpenAI API: {e}"
+            except openai.error.RateLimitError as e:
+                # Handle rate limit error (we recommend using exponential backoff)
+                return f"OpenAI API request exceeded rate limit: {e}"
+            except openai.error.Timeout as e:
+                # Handle timeout error (we recommend using exponential backoff)
+                return f"OpenAI API request timed out: {e}"
+            except openai.error.ServiceUnavailableError as e:
+                # Handle service unavailable error (we recommend using exponential backoff)
+                return f"OpenAI API service unavailable: {e}"
+            except openai.error.InvalidRequestError as e:
+                return f"OpenAI API request was invalid: {e}"
+            except GoogleAPIError as e:
+                return f"Google API returned an error: {e}"
+            except SQLAlchemyError as e:
+                return f"Error: {e}"
 
-    return wrapper
+        return wrapper
+
+    return decorator
 
 
 # Classes needed for tools
@@ -133,7 +144,7 @@ class GetCurrentTimeTool(BaseSQLDatabaseTool, BaseTool):
     Always use this tool before generating a query if there is any time or date in the given question.
     """
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         tool_input: str = "",  # noqa: ARG002
@@ -162,19 +173,14 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, BaseTool):
     Use this tool to execute SQL queries.
     """
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         query: str,
         run_manager: CallbackManagerForToolRun | None = None,  # noqa: ARG002
     ) -> str:
         """Execute the query, return the results or an error message."""
-        try:
-            run_result = self.db.run_sql(query)[0]
-        except SQLAlchemyError as e:
-            """Format the error message"""
-            run_result = f"Error: {e}"
-        return run_result
+        return self.db.run_sql(query)[0]
 
     async def _arun(
         self,
@@ -206,7 +212,7 @@ class TablesSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     def cosine_similarity(self, a: List[float], b: List[float]) -> float:
         return round(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)), 4)
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         user_question: str,
@@ -260,19 +266,19 @@ class ColumnEntityChecker(BaseSQLDatabaseTool, BaseTool):
     """
 
     def find_similar_strings(
-        self, input_list: List[tuple], target_string: str, threshold=0.6
+        self, input_list: List[tuple], target_string: str, threshold=0.4
     ):
         similar_strings = []
         for item in input_list:
             similarity = difflib.SequenceMatcher(
-                None, str(item[0]).strip(), target_string
+                None, str(item[0]).strip().lower(), target_string.lower()
             ).ratio()
             if similarity >= threshold:
                 similar_strings.append((str(item[0]).strip(), similarity))
         similar_strings.sort(key=lambda x: x[1], reverse=True)
         return similar_strings[:25]
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         tool_input: str,
@@ -280,12 +286,28 @@ class ColumnEntityChecker(BaseSQLDatabaseTool, BaseTool):
     ) -> str:
         schema, entity = tool_input.split(",")
         table_name, column_name = schema.split("->")
-        query = f"SELECT DISTINCT {column_name} FROM {table_name}"  # noqa: S608
-        results = self.db.run_sql(query)[1]["result"]
+        search_pattern = f"%{entity.strip().lower()}%"
+        meta = MetaData(bind=self.db.engine)
+        table = sqlalchemy.Table(table_name.strip(), meta, autoload=True)
+        search_query = sqlalchemy.select(
+            [func.distinct(table.c[column_name.strip()])]
+        ).where(func.lower(table.c[column_name.strip()]).like(search_pattern))
+        distinct_query = sqlalchemy.select(
+            [func.distinct(table.c[column_name.strip()])]
+        )
+        search_results = self.db.engine.execute(search_query).fetchall()
+        search_results = search_results[:25]
+        results = self.db.engine.execute(distinct_query).fetchall()
         results = self.find_similar_strings(results, entity)
         similar_items = "Similar items:\n"
+        already_added = {}
         for item in results:
             similar_items += f"{item[0]}\n"
+            already_added[item[0]] = True
+        if len(search_results) > 0:
+            for item in search_results:
+                if item[0] not in already_added:
+                    similar_items += f"{item[0]}\n"
         return similar_items
 
     async def _arun(
@@ -309,7 +331,7 @@ class SchemaSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """
     db_scan: List[TableSchemaDetail]
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         table_names: str,
@@ -346,7 +368,7 @@ class InfoRelevantColumns(BaseSQLDatabaseTool, BaseTool):
     """
     db_scan: List[TableSchemaDetail]
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         column_names: str,
@@ -399,7 +421,7 @@ class GetFewShotExamples(BaseSQLDatabaseTool, BaseTool):
     """  # noqa: E501
     few_shot_examples: List[dict]
 
-    @catch_exceptions
+    @catch_exceptions()
     def _run(
         self,
         number_of_samples: str,
@@ -500,7 +522,7 @@ class DataheraldSQLAgent(SQLGenerator):
         input_variables: List[str] | None = None,
         max_examples: int = 20,
         top_k: int = 13,
-        max_iterations: int | None = 15,
+        max_iterations: int | None = 10,
         max_execution_time: float | None = None,
         early_stopping_method: str = "force",
         verbose: bool = False,
@@ -548,7 +570,9 @@ class DataheraldSQLAgent(SQLGenerator):
         context_store = self.system.instance(ContextStore)
         storage = self.system.instance(DB)
         repository = DBScannerRepository(storage)
-        db_scan = repository.get_all_tables_by_db(db_alias=database_connection.alias)
+        db_scan = repository.get_all_tables_by_db(
+            db_connection_id=database_connection.id
+        )
         if not db_scan:
             raise ValueError("No scanned tables found for database")
         few_shot_examples = context_store.retrieve_context_for_question(
@@ -576,15 +600,28 @@ class DataheraldSQLAgent(SQLGenerator):
         agent_executor.return_intermediate_steps = True
         agent_executor.handle_parsing_errors = True
         with get_openai_callback() as cb:
-            result = agent_executor({"input": user_question.question})
-        intermediate_steps = []
+            try:
+                result = agent_executor({"input": user_question.question})
+            except SQLInjectionError as e:
+                raise SQLAlchemyError(e) from e
+            except Exception as e:
+                return NLQueryResponse(
+                    nl_question_id=user_question.id,
+                    total_tokens=cb.total_tokens,
+                    total_cost=cb.total_cost,
+                    sql_query="",
+                    sql_generation_status="INVALID",
+                    sql_query_result=None,
+                    error_message=str(e),
+                )
         sql_query_list = []
         for step in result["intermediate_steps"]:
             action = step[0]
             if type(action) == AgentAction and action.tool == "sql_db_query":
-                sql_query_list.append(action.tool_input)
-
-            intermediate_steps.append(str(step))
+                sql_query_list.append(self.format_sql_query(action.tool_input))
+        intermediate_steps = self.format_intermediate_representations(
+            result["intermediate_steps"]
+        )
         exec_time = time.time() - start_time
         logger.info(
             f"cost: {str(cb.total_cost)} tokens: {str(cb.total_tokens)} time: {str(exec_time)}"

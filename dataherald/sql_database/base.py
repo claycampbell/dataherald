@@ -1,9 +1,9 @@
 """SQL wrapper around SQLDatabase in langchain."""
 import logging
-import re
 from typing import Any, List
 from urllib.parse import unquote
 
+import sqlparse
 from langchain.sql_database import SQLDatabase as LangchainSQLDatabase
 from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.engine import Engine
@@ -75,20 +75,26 @@ class SQLDatabase(LangchainSQLDatabase):
 
     @classmethod
     def get_sql_engine(cls, database_info: DatabaseConnection) -> "SQLDatabase":
-        logger.info(f"Attempting to connect to db: {database_info.alias}")
-
-        # Check for cached connections
-        if database_info.alias in DBConnections.db_connections:
-            logger.info(f"Using cached connection for: {database_info.alias}")
-            return DBConnections.db_connections[database_info.alias]
+        logger.info(f"Connecting db: {database_info.id}")
+        if database_info.id in DBConnections.db_connections:
+            return DBConnections.db_connections[database_info.id]
 
         fernet_encrypt = FernetEncrypt()
         if database_info.use_ssh:
             engine = cls.from_uri_ssh(database_info)
-            DBConnections.add(database_info.alias, engine)
+            DBConnections.add(database_info.id, engine)
             return engine
-        engine = cls.from_uri(unquote(fernet_encrypt.decrypt(database_info.uri)))
-        DBConnections.add(database_info.alias, engine)
+        db_uri = unquote(fernet_encrypt.decrypt(database_info.uri))
+        if db_uri.lower().startswith("bigquery"):
+            file_path = database_info.path_to_credentials_file
+            if file_path.lower().startswith("s3"):
+                s3 = S3()
+                file_path = s3.download(file_path)
+
+            db_uri = db_uri + f"?credentials_path={file_path}"
+
+        engine = cls.from_uri(db_uri)
+        DBConnections.add(database_info.id, engine)
         return engine
 
     @classmethod
@@ -125,14 +131,18 @@ class SQLDatabase(LangchainSQLDatabase):
             "MERGE",
             "EXECUTE",
         ]
-        pattern = (
-            r"\b(?:" + "|".join(re.escape(word) for word in sensitive_keywords) + r")\b"
-        )
-        match = re.search(pattern, command, re.IGNORECASE)
-        if match:
-            raise SQLInjectionError(
-                f"Sensitive SQL keyword '{match.group()}' detected in the query."
-            )
+        parsed_command = sqlparse.parse(command)
+
+        for stmt in parsed_command:
+            for token in stmt.tokens:
+                if (
+                    isinstance(token, sqlparse.sql.Token)
+                    and token.normalized in sensitive_keywords
+                ):
+                    raise SQLInjectionError(
+                        f"Sensitive SQL keyword '{token.normalized}' detected in the query."
+                    )
+
         return command
 
     def run_sql(self, command: str) -> tuple[str, dict]:

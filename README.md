@@ -33,6 +33,8 @@ Dataherald is a natural language-to-SQL engine built for enterprise-level questi
 
 This project is undergoing swift development, and as such, the API may be subject to change at any time.
 
+If you would like to learn more, you can join the <a href="https://discord.gg/A59Uxyy2k9" target="_blank">Discord</a> or <a href="https://dataherald.readthedocs.io/" target="_blank">read the docs</a>.
+
 ## Overview
 
 ### Background
@@ -64,7 +66,7 @@ You can also self-host the engine locally using Docker. By default the engine us
 cp .env.example .env
 ```
 
-Specifically the following 5 fields must be manually set before the engine is started.
+Specifically the following 4 fields must be manually set before the engine is started.
 
 ```
 #OpenAI credentials and model 
@@ -149,7 +151,7 @@ Once the engine is running, you will want to use it by:
 3. Querying the data in natural language
 
 ### Connecting to your data warehouses
-We currently support connections to Postgres, BigQuery, Databricks and Snowflake. You can create connections to these warehouses through the API or at application start-up using the envars.
+We currently support connections to Postgres, BigQuery, Databricks, Snowflake and AWS Athena. You can create connections to these warehouses through the API or at application start-up using the envars.
 
 #### Connecting through the API
 
@@ -158,11 +160,11 @@ You can define a DB connection through a call to the following API endpoint `/ap
 Example 1. Without a SSH connection
 ```
 curl -X 'POST' \
-  '<host>/api/v1/database' \
+  '<host>/api/v1/database-connections' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "db_alias": "my_db_alias_identifier",
+  "alias": "my_db_alias",
   "use_ssh": false,
   "connection_uri": "sqlite:///mydb.db",
   "path_to_credentials_file": "my-folder/my-secret.json" # Required for bigquery
@@ -172,11 +174,11 @@ curl -X 'POST' \
 Example 2. With a SSH connection
 ```
 curl -X 'POST' \
-  'http://localhost/api/v1/database' \
+  '<host>/api/v1/database-connections' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "db_alias": "my_db_alias_identifier",
+  "alias": "my_db_alias",
   "use_ssh": true,
   "ssh_settings": {
     "db_name": "db_name",
@@ -200,38 +202,31 @@ By default, DB credentials are stored in `database_connection` collection in Mon
 You can generate the `connection_uri` parameter in the API call for each of the supported warehouses by using the steps outlined below.
 
 **Postgres**
-Uri structure:
 ```
 "connection_uri": postgresql+psycopg2://<user>:<password>@<host>:<port>/<db-name>
 ```
-Example:
-```
-"connection_uri": postgresql+psycopg2://admin:123456@foo.rds.amazonaws.com:5432/my-database
-```
 
 **Databricks**
-Uri structure:
 ```
 "connection_uri": databricks://token:<token>@<host>?http_path=<http-path>&catalog=<catalog>&schema=<schema-name>
 ```
-Example:
-```
-"connection_uri": databricks://token:abcd1234abcd1234abcd1234abcd1234@foo-bar.cloud.databricks.com?http_path=sql/protocolv1/o/123456/123-1234-abcdabcd&catalog=foobar&schema=default
-```
 
 **Snowflake**
-Uri structure:
 ```
 "connection_uri": snowflake://<user>:<password>@<organization>-<account-name>/<database>/<schema>
 ```
-Example:
+
+**AWS Athena**
 ```
-"connection_uri": snowflake://jon:123456@foo-bar/my-database/public
+"connection_uri": awsathena+rest://<aws_access_key_id>:<aws_secret_access_key>@athena.<region_name>.amazonaws.com:443/<schema_name>?s3_staging_dir=<s3_staging_dir>&work_group=primary
 ```
 
 **BigQuery**
-To connect to BigQuery you should create a credential file, this is a json file, you can
-follow this [tutorial](https://www.privacydynamics.io/docs/connections/bigquery.html) to generate it.
+To connect to BigQuery you should create a json credential file. Please follow Steps 1-3 under "Configure 
+BigQuery Authentication in Google Cloud Platform" in 
+this [tutorial](https://www.privacydynamics.io/docs/connections/bigquery.html). 
+
+> IMPORTANT: Please ensure the service account only has **"Viewer"** permissions.
 
 Once you have your credential json file you can store it inside this project for example I created the folder 
 `private_credentials` and inside I stored my credential file `my-db-123456acbd.json`
@@ -241,40 +236,37 @@ You should set in the endpoint param `path_to_credentials_file` the path, for ex
 "path_to_credentials_file": "private_credentials/my-db-123456acbd.json"
 ```
 
-Uri structure:
 ```
 "connection_uri": bigquery://<project>/<database>
-```
-Example:
-```
-"connection_uri": bigquery://v2-real-estate/K2
 ```
 
 
 
 ### Adding Context
-Once you have connected to the data warehouse, you should add context to the engine to help improve the accuracy of the generated SQL. While only the Database scan part is required to start generating SQL, adding verified SQL and string descriptions are also important for the tool to generate accurate SQL. Context can currently be added in one of three ways:
+Once you have connected to the data warehouse, you should add context to the engine to help improve the accuracy of the generated SQL. Context can currently be added in one of three ways:
 
 1. Scanning the Database tables and columns
 2. Adding verified SQL (golden SQL)
 3. Adding string descriptions of the tables and columns
 
+While only the Database scan part is required to start generating SQL, adding verified SQL and string descriptions are also important for the tool to generate accurate SQL. 
+
 #### Scanning the Database
-The database scan is used to gather information about the database including table and column names and identifying low cardinality columns and their values to be stored in the context store and used in the prompts to the LLM. You can trigger a scan of a database from the `POST /api/v1/scanner` endpoint. Example below
+The database scan is used to gather information about the database including table and column names and identifying low cardinality columns and their values to be stored in the context store and used in the prompts to the LLM. You can trigger a scan of a database from the `POST /api/v1/table-descriptions/scan` endpoint. Example below
 
 
 ```
 curl -X 'POST' \
-  '<host>/api/v1/scanner' \
+  '<host>/api/v1/table-descriptions/scan' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-    "db_alias": "db_name",
-    "table_name": "table_name"
+    "db_connection_id": "db_connection_id",
+    "table_names": ["table_name"]
   }'
 ```
 
-Since the endpoint identifies low cardinality columns (and their values) it can take time to complete. Therefore while it is possible to trigger a scan on the entire DB by not specifying the `table_name`, we recommend against it for large databases. 
+Since the endpoint identifies low cardinality columns (and their values) it can take time to complete. Therefore while it is possible to trigger a scan on the entire DB by not specifying the `table_names`, we recommend against it for large databases. 
 
 #### Get a scanned db
 Once a database was scanned you can use this endpoint to retrieve the tables names and columns
@@ -282,16 +274,16 @@ Once a database was scanned you can use this endpoint to retrieve the tables nam
 
 ```
 curl -X 'GET' \
-    '<host>/api/v1/scanned-databases?db_alias=databricks' \
-    -H 'accept: application/json'
+  '<host>/api/v1/table-descriptions?db_connection_id=64dfa0e103f5134086f7090c&table_name=foo' \
+  -H 'accept: application/json'
 ```
 
 #### Adding verified SQL
-Sample NL<>SQL pairs (golden SQL) can be stored in the context store and used for few-shot in context learning. In the default context store and NL 2 SQL engine, these samples are stored in a vector store and the closest samples are retrieved for few shot learning. You can add golden SQL to the context store from the `POST /api/v1/golden-record` endpoint
+Sample NL<>SQL pairs (golden SQL) can be stored in the context store and used for few-shot in context learning. In the default context store and NL 2 SQL engine, these samples are stored in a vector store and the closest samples are retrieved for few shot learning. You can add golden SQL to the context store from the `POST /api/v1/golden-records` endpoint
 
 ```
 curl -X 'POST' \
-  '<host>/api/v1/golden-record' \
+  '<host>/api/v1/golden-records' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '[
@@ -304,11 +296,11 @@ curl -X 'POST' \
 ```
 
 #### Adding string descriptions
-In addition to database table_info and golden_sql, you can add strings describing tables and/or columns to the context store manually from the `PATCH /api/v1/scanned-db/{db_name}/{table_name}` endpoint
+In addition to database table_info and golden_sql, you can add strings describing tables and/or columns to the context store manually from the `PATCH /api/v1/table-descriptions/{table_description_id}` endpoint
 
 ```
 curl -X 'PATCH' \
-  '<host>/api/v1/scanned-db/db_name/table_name' \
+  '<host>/api/v1/table-descriptions/64dfa0e103f5134086f7090c' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -336,8 +328,8 @@ curl -X 'POST' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-        "question": "what was the most expensive zip code to rent in Los Angeles county in May 2022?"",
-        "db_alias": "db_name"
+        "question": "Your question in natural language",
+        "db_connection_id": "db_connection_id"
     }'
 ```
 

@@ -1,7 +1,7 @@
 Create a Database connection
 =============================
 
-We currently support connections to the following data warehouses: ``databricks``, ``postgresql``, ``snowflake``, ``bigquery``. All sensitive connection data 
+We currently support connections to the following data warehouses: ``databricks``, ``postgresql``, ``snowflake``, ``bigquery`` and ``AWS Athena``. All sensitive connection data
 is encrypted using the key you provide in your .env file before being stored to the application storage. 
 
 You can also specify the engine to connect to the Database through an SSH tunnel, as demonstrated in the second example below.
@@ -11,14 +11,14 @@ You can find additional details on how to connect to each of the supported data 
 
 **Request this POST endpoint**::
 
-   /api/v1/database
+   /api/v1/database-connections
 
 **Request body**
 
 .. code-block:: rst
 
    {
-      "db_alias": "string",
+      "alias": "string",
       "use_ssh": true,
       "connection_uri": "string",
       "path_to_credentials_file": "string",
@@ -35,6 +35,23 @@ You can find additional details on how to connect to each of the supported data 
         "db_driver": "string"
       }
     }
+
+**SSH Parameters**
+
+.. csv-table::
+   :header: "Name", "Type", "Description"
+   :widths: 20, 20, 60
+
+    "db_name", "string", "The name of the database you want to connect to"
+    "host", "string", "The hostname or IP address of the SSH server you need to access"
+    "username", "string", "Your username for SSH authentication"
+    "password", "string", "Your password for SSH authentication"
+    "remote_host", "string", "The hostname or IP address of the remote database server you want to connect to."
+    "remote_db_name", "string", "The name of the remote database you want to interact with."
+    "remote_db_password", "string", "The password for accessing the remote database."
+    "private_key_path", "string", "The file path to locate your id_rsa private key file. For example, if you are using Docker and the file is located at the root, the path would be /app/id_rsa. Ensure that you include this file in your Docker container by building it."
+    "private_key_password", "string", "The password for the id_rsa private key file, if it is password-protected"
+    "db_driver", "string", "Set the database driver. For example, for PostgreSQL, the driver should be set to `postgresql+psycopg2`"
 
 **Responses**
 
@@ -69,13 +86,13 @@ Without a SSH connection
 .. code-block:: rst
 
    curl -X 'POST' \
-      'localhost/api/v1/database' \
+      '<host>/api/v1/database-connections' \
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
-      "db_alias": "postgres",
+      "alias": "my_db_alias_identifier",
       "use_ssh": false,
-      "connection_uri": "postgres://hakkoda:P@ssw0rd@postgres.database.azure.com:5432/postgres"
+      "connection_uri": "sqlite:///mydb.db"
     }'
 
 **Example 2**
@@ -85,11 +102,11 @@ With a SSH connection
 .. code-block:: rst
 
     curl -X 'POST' \
-      'http://localhost/api/v1/database' \
+      '<host>/api/v1/database-connections' \
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
-      "db_alias": "my_db_alias_identifier",
+      "alias": "my_db_alias",
       "use_ssh": true,
       "ssh_settings": {
         "db_name": "db_name",
@@ -125,6 +142,10 @@ Example::
 
 "connection_uri": postgresql+psycopg2://admin:123456@foo.rds.amazonaws.com:5432/my-database
 
+Specify a schema (If it isn't specified by default it uses `public`)::
+
+"connection_uri": postgresql+psycopg2://<user>:<password>@<host>:<port>/<db-name>?options=-csearch_path=<my-schema>
+
 Databricks
 ^^^^^^^^^^^^
 
@@ -147,12 +168,25 @@ Example::
 
 "connection_uri": snowflake://jon:123456@foo-bar/my-database/public
 
+AWS Athena
+^^^^^^^^^^^^
+
+Uri structure::
+
+"connection_uri": awsathena+rest://<aws_access_key_id>:<aws_secret_access_key>@athena.<region_name>.amazonaws.com:443/<schema_name>?s3_staging_dir=<s3_staging_dir>&work_group=primary
+
+Example::
+
+"connection_uri": awsathena+rest://foobar:foobar@athena.us-east-2.amazonaws.com:443/db_test?s3_staging_dir=s3://my-bucket/output/&work_group=primary
 
 BigQuery
 ^^^^^^^^^^^^
 
-To connect to BigQuery you should create a json credential file. You can
-follow this `tutorial <https://www.privacydynamics.io/docs/connections/bigquery.html>`_ to generate it.
+To connect to BigQuery you should create a json credential file. Please follow Steps 1-3 under "Configure BigQuery
+Authentication in Google Cloud Platform" in
+this `tutorial <https://www.privacydynamics.io/docs/connections/bigquery.html>`_.
+
+    Please ensure the service account only has **"Viewer"** permissions.
 
 Once you have your credential json file you can store it inside the project. For example given the credential file `my-db-123456acbd.json` 
 in the folder `private_credentials`  you should set in the endpoint param `path_to_credentials_file` the path, for example::

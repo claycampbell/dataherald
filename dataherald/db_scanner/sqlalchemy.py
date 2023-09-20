@@ -20,10 +20,20 @@ class SqlAlchemyScanner(Scanner):
     def get_table_examples(
         self, meta: MetaData, db_engine: SQLDatabase, table: str, rows_number: int = 3
     ) -> List[Any]:
-        examples_query = sqlalchemy.select(meta.tables[table]).limit(rows_number)
+        print(f"Create examples: {table}")
+        examples_query = (
+            sqlalchemy.select(meta.tables[table])
+            .with_only_columns(
+                [
+                    column
+                    for column in meta.tables[table].columns
+                    if column.name.find(".") < 0
+                ]
+            )
+            .limit(rows_number)
+        )
         examples = db_engine.engine.execute(examples_query).fetchall()
         examples_dict = []
-        print(f"Create examples: {table}")
         columns = [column["name"] for column in examples_query.column_descriptions]
         for example in examples:
             temp_dict = {}
@@ -107,13 +117,15 @@ class SqlAlchemyScanner(Scanner):
         meta: MetaData,
         table: str,
         db_engine: SQLDatabase,
-        db_alias: str,
+        db_connection_id: str,
         repository: DBScannerRepository,
     ) -> TableSchemaDetail:
         print(f"Scanning table: {table}")
         inspector = inspect(db_engine.engine)
         table_columns = []
         columns = inspector.get_columns(table_name=table)
+        columns = [column for column in columns if column["name"].find(".") < 0]
+
         for column in columns:
             print(f"Scanning column: {column['name']}")
             table_columns.append(
@@ -123,7 +135,7 @@ class SqlAlchemyScanner(Scanner):
             )
 
         object = TableSchemaDetail(
-            db_alias=db_alias,
+            db_connection_id=db_connection_id,
             table_name=table,
             columns=table_columns,
             table_schema=self.get_table_schema(
@@ -141,16 +153,19 @@ class SqlAlchemyScanner(Scanner):
     def scan(
         self,
         db_engine: SQLDatabase,
-        db_alias: str,
-        table_name: str | None,
+        db_connection_id: str,
+        table_names: list[str] | None,
         repository: DBScannerRepository,
     ) -> None:
         inspector = inspect(db_engine.engine)
         meta = MetaData(bind=db_engine.engine)
-        MetaData.reflect(meta)
-        tables = inspector.get_table_names()
-        if table_name:
-            tables = [table for table in tables if table.lower() == table_name.lower()]
+        MetaData.reflect(meta, views=True)
+        tables = inspector.get_table_names() + inspector.get_view_names()
+        if table_names:
+            table_names = [table.lower() for table in table_names]
+            tables = [
+                table for table in tables if table and table.lower() in table_names
+            ]
         if len(tables) == 0:
             raise ValueError("No table found")
         result = []
@@ -159,7 +174,7 @@ class SqlAlchemyScanner(Scanner):
                 meta=meta,
                 table=table,
                 db_engine=db_engine,
-                db_alias=db_alias,
+                db_connection_id=db_connection_id,
                 repository=repository,
             )
             result.append(obj)
