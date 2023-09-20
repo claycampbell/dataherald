@@ -11,6 +11,8 @@ services:
     tty: true
     volumes:
       - ./dataherald:/app/dataherald
+    env_file:
+      - .env
     depends_on:
       - mongodb
     networks:

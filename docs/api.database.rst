@@ -69,13 +69,13 @@ Without a SSH connection
 .. code-block:: rst
 
    curl -X 'POST' \
-      '<host>/api/v1/database' \
+      'localhost/api/v1/database' \
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
-      "db_alias": "my_db_alias_identifier",
+      "db_alias": "postgres",
       "use_ssh": false,
-      "connection_uri": "sqlite:///mydb.db"
+      "connection_uri": "postgres://hakkoda:P@ssw0rd@postgres.database.azure.com:5432/postgres"
     }'
 
 **Example 2**
