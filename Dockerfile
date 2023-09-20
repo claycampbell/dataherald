@@ -1,6 +1,6 @@
 FROM python:3.11.4
 
-LABEL Author="Juan Carlos José Camacho"
+LABEL Author=""
 LABEL version="0.0.1b"
 
 WORKDIR /app

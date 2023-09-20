@@ -35,4 +35,3 @@ services:
 networks:
   backendnetwork:
     external: true
-    
