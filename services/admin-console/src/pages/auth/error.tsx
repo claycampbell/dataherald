@@ -6,6 +6,7 @@ import { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { FC, useState } from 'react'
+import React, { useEffect } from 'react';
 
 enum ERROR_CODES {
   EMAIL_NOT_VERIFIED = 'Email Not Verified',
