@@ -8,8 +8,7 @@ services:
       - dataherald_network
     environment:
       - MONGODB_URI=mongodb://dataherald-mongodb:27017
-      - MONGODB_DB_USERNAME=${MONGODB_DB_USERNAME}
-      - MONGODB_DB_PASSWORD=${MONGODB_DB_PASSWORD}
+    platform: linux/amd64
 
   dataherald-mongodb:
     image: mongo:latest
@@ -21,6 +20,7 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGODB_DB_USERNAME}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_DB_PASSWORD}
+    platform: linux/amd64
 
   dataherald-enterprise:
     image: dataherald.azurecr.io/dataherald-enterprise:latest
@@ -29,6 +29,7 @@ services:
       - dataherald_network
     ports:
       - "3001:8080"
+    platform: linux/amd64
 
   dataherald-admin-console:
     image: dataherald.azurecr.io/dataherald-admin-console:latest
@@ -37,9 +38,8 @@ services:
       - "3000:3000"
     networks:
       - dataherald_network
+    platform: linux/amd64
 
 networks:
   dataherald_network:
     driver: bridge
-    name: dataherald_network
-  
