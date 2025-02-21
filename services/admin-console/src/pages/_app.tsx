@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import { Nunito_Sans, Source_Code_Pro } from 'next/font/google'
+import { useUser } from './path/to/auth-context'
 
 export const sourceCode = Source_Code_Pro({
   subsets: ['latin'],
@@ -27,32 +28,26 @@ export const mainFont = Nunito_Sans({
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <AuthProvider>
-      <WithMobileRedirect>
-        <UIProvider>
-          <SubscriptionProvider>
-            <WithSubscription>
-              <AppContextProvider>
-                <WithAnalytics>
-                  <WithApiFetcher>
-                    <SelfServeProvider>
-                      <div
-                        className={cn(
-                          sourceCode.variable,
-                          mainFont.variable,
-                          'font-main',
-                        )}
-                      >
+    <UserProvider>
+      <AuthProvider>
+        <WithMobileRedirect>
+          <UIProvider>
+            <SubscriptionProvider>
+              <WithSubscription>
+                <AppContextProvider>
+                  <WithAnalytics>
+                    <WithApiFetcher>
+                      <SelfServeProvider>
                         <Component {...pageProps} />
-                      </div>
-                    </SelfServeProvider>
-                  </WithApiFetcher>
-                </WithAnalytics>
-              </AppContextProvider>
-            </WithSubscription>
-          </SubscriptionProvider>
-        </UIProvider>
-      </WithMobileRedirect>
-    </AuthProvider>
+                      </SelfServeProvider>
+                    </WithApiFetcher>
+                  </WithAnalytics>
+                </AppContextProvider>
+              </WithSubscription>
+            </SubscriptionProvider>
+          </UIProvider>
+        </WithMobileRedirect>
+      </AuthProvider>
+    </UserProvider>
   )
 }
