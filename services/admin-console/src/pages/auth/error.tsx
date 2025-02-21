@@ -47,110 +47,33 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 }
 
-const AuthErrorPage: FC<{
-  errorCause: string
-  errorDescription: string
-  isEmailNotVerified: boolean
-  logoutUrl: string
-}> = ({ errorCause, errorDescription, isEmailNotVerified, logoutUrl }) => {
+const AuthErrorPage: FC = () => {
   const router = useRouter()
-  const [showDetails, setShowDetails] = useState(false)
 
-  const toggleDetails = () => {
-    setShowDetails(!showDetails)
-  }
-
-  const continueToLogin = async () => {
+  // Automatically redirect to homepage
+  useEffect(() => {
     router.push('/')
-  }
-
-  const logoutUser = async () => {
-    window.location.href = logoutUrl
-  }
+  }, [router])
 
   return (
     <BackgroundPageLayout>
       <Head>
-        <title>Authentication error - Dataherald API</title>
+        <title>Redirecting - Dataherald API</title>
       </Head>
       <div className="bg-white shadow-lg w-full max-w-none h-screen rounded-none sm:rounded-2xl sm:h-fit p-8 sm:max-w-lg">
-        <h1 className="text-xl font-bold mb-4 text-secondary-dark flex items-center gap-3">
-          {isEmailNotVerified && <MailWarning size={50} />}
-          {errorCause}
+        <h1 className="text-xl font-bold mb-4 text-secondary-dark">
+          Redirecting...
         </h1>
-        <div className="mb-8">
-          {isEmailNotVerified ? (
-            <div className="flex flex-col gap-4">
-              <p className="text-slate-800 break-words">
-                Check your inbox for the verification email and follow the
-                instructions to complete the process.
-              </p>
-              <p className="text-slate-800 break-words">
-                {`If you can't find the email `}
-                <a
-                  className="text-primary font-semibold hover:underline"
-                  href="mailto:support@dataherald.com"
-                >
-                  contact us
-                </a>{' '}
-                for assistance.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-slate-800 break-words">
-                Something went wrong. Please try to log in again by clicking the
-                button below or{' '}
-                <a
-                  className="text-primary font-semibold hover:underline"
-                  href="mailto:support@dataherald.com"
-                >
-                  contact us
-                </a>{' '}
-                if the issue persists.
-              </p>
-              {errorDescription && (
-                <Button
-                  variant="link"
-                  className="w-fit p-0 text-primary font-semibold cursor-pointer"
-                  onClick={toggleDetails}
-                >
-                  {showDetails ? 'Hide details' : 'Show details'}
-                </Button>
-              )}
-              {showDetails && (
-                <p className="text-slate-500 whitespace-pre-wrap">
-                  {errorDescription}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          {isEmailNotVerified && (
-            <button
-              className="bg-secondary text-white font-semibold py-2 px-4 rounded-lg w-full"
-              onClick={continueToLogin}
-            >
-              Continue
-            </button>
-          )}
-          {isEmailNotVerified ? (
-            <button
-              className="bg-white text-secondary border border-secondary font-semibold py-2 px-4 rounded-lg w-full"
-              onClick={logoutUser}
-            >
-              Logout
-            </button>
-          ) : (
-            <button
-              className="bg-secondary text-white font-semibold py-2 px-4 rounded-lg w-full"
-              onClick={logoutUser}
-            >
-              Try Again
-            </button>
-          )}
-        </div>
+        <p className="text-slate-800 break-words">
+          You are being redirected. If nothing happens, click{' '}
+          <a
+            className="text-primary font-semibold hover:underline cursor-pointer"
+            onClick={() => router.push('/')}
+          >
+            here
+          </a>
+          .
+        </p>
       </div>
     </BackgroundPageLayout>
   )
