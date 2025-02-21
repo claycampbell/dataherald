@@ -1,5 +1,3 @@
-import { UserProvider, useUser } from '@auth0/nextjs-auth0/client'
-import { useRouter } from 'next/navigation'
 import React, {
   ComponentType,
   FC,
@@ -10,6 +8,7 @@ import React, {
   useEffect,
   useState,
 } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface AuthProviderProps {
   children: ReactNode
@@ -19,19 +18,25 @@ type WithAuthUser = (
   Component: ComponentType<AuthProviderProps>,
 ) => React.FC<AuthProviderProps>
 
+const MockUser = {
+  name: 'Mock User',
+  email: 'mockuser@example.com',
+  sub: 'mock|12345',
+}
+
 const withAuthUser: WithAuthUser = (Component) => {
   return function WithAuthUser(props: AuthProviderProps): JSX.Element {
-    return (
-      <UserProvider>
-        <Component {...props} />
-      </UserProvider>
-    )
+    return <Component {...props} />
   }
 }
 
 interface AuthContextType {
   token: string | null
+  user: typeof MockUser | null
+  isAuthenticated: boolean
   fetchToken: () => Promise<void>
+  login: () => void
+  logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -39,30 +44,53 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: FC<AuthProviderProps> = withAuthUser(
   ({ children }) => {
     const router = useRouter()
-    const { user: sessionUser } = useUser()
     const [token, setToken] = useState<string | null>(null)
+    const [user, setUser] = useState<null | typeof MockUser>(null)
+    const isAuthenticated = !!user
 
     const fetchToken = useCallback(async () => {
-      try {
-        const response = await fetch('/api/auth/token')
-        const token: string = await response.json()
-        setToken(token)
-      } catch (error) {
-        console.error(`Fetching token failed, redirecting to logout: ${error}`)
-        router.push('/api/auth/logout')
-      }
-    }, [router])
+      // Simulate a token fetch
+      const fakeToken = 'mocked-token-123'
+      setToken(fakeToken)
+    }, [])
 
     useEffect(() => {
-      !!sessionUser && fetchToken()
-    }, [fetchToken, sessionUser])
+      const isLoggedIn = localStorage.getItem('isLoggedIn')
+      if (isLoggedIn) {
+        const storedUser = localStorage.getItem('mockUser')
+        setUser(storedUser ? JSON.parse(storedUser) : MockUser)
+        fetchToken()
+      } else {
+        localStorage.setItem('isLoggedIn', 'true')
+        localStorage.setItem('mockUser', JSON.stringify(MockUser))
+        setUser(MockUser)
+        fetchToken()
+      }
+    }, [fetchToken])
+
+    const login = () => {
+      localStorage.setItem('isLoggedIn', 'true')
+      localStorage.setItem('mockUser', JSON.stringify(MockUser))
+      setUser(MockUser)
+      fetchToken()
+      router.push('/')
+    }
+
+    const logout = () => {
+      localStorage.removeItem('isLoggedIn')
+      localStorage.removeItem('mockUser')
+      setUser(null)
+      router.push('/auth/error')
+    }
 
     return (
-      <AuthContext.Provider value={{ token, fetchToken }}>
+      <AuthContext.Provider
+        value={{ token, user, isAuthenticated, fetchToken, login, logout }}
+      >
         {children}
       </AuthContext.Provider>
     )
-  },
+  }
 )
 
 export const useAuth = (): AuthContextType => {
