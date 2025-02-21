@@ -2,9 +2,21 @@ import { useGetOrganization } from '@/hooks/api/organization/useGetOrganization'
 import { useGetUser } from '@/hooks/api/user/useGetUser'
 import { usePatchUser } from '@/hooks/api/user/usePatchUser'
 import { Organization, User } from '@/models/api'
+import { useUser } from './path/to/auth-context'
 // import { useUser } from '@auth0/nextjs-auth0/client'  
-import { useUser as useAuth0User } from '@auth0/nextjs-auth0/client'
 
+// Override useUser hook
+const useUser = () => {
+  return {
+    user: {
+      id: 'mock-user-123',
+      name: 'Mock User',
+      email: 'mockuser@example.com',
+      organization_id: 'mock-org-456'
+    },
+    isLoading: false
+  }
+}
 const mockUser = {
   user: {
     id: 'mock-user-123',
