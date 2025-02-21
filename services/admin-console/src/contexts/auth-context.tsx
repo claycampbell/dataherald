@@ -23,7 +23,17 @@ const MockUser = {
   email: 'mockuser@example.com',
   sub: 'mock|12345',
 }
-
+export const useUser = () => {
+  return {
+    user: {
+      id: 'mock-user-123',
+      name: 'Mock User',
+      email: 'mockuser@example.com',
+      organization_id: 'mock-org-456'
+    },
+    isLoading: false
+  }
+}
 const withAuthUser: WithAuthUser = (Component) => {
   return function WithAuthUser(props: AuthProviderProps): JSX.Element {
     return <Component {...props} />
