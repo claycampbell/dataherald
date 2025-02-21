@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   dataherald-engine:
     image: dataherald.azurecr.io/dataherald-engine:latest
@@ -8,9 +7,10 @@ services:
     networks:
       - dataherald_network
     environment:
-      - MONGODB_URI=mongodb://dataherald-mongodb:27017/<your_db>?authSource=admin
-      # You can also set environment variables in Azure (recommended).
-  
+      - MONGODB_URI=mongodb://dataherald-mongodb:27017
+      - MONGODB_DB_USERNAME=${MONGODB_DB_USERNAME}
+      - MONGODB_DB_PASSWORD=${MONGODB_DB_PASSWORD}
+
   dataherald-mongodb:
     image: mongo:latest
     container_name: dataherald-mongodb
@@ -22,14 +22,13 @@ services:
       - MONGO_INITDB_ROOT_USERNAME=${MONGODB_DB_USERNAME}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_DB_PASSWORD}
 
-  # If you have the enterprise container
   dataherald-enterprise:
     image: dataherald.azurecr.io/dataherald-enterprise:latest
     container_name: dataherald-enterprise
     networks:
       - dataherald_network
     ports:
-      - "8080:8080"
+      - "3001:8080"
 
   dataherald-admin-console:
     image: dataherald.azurecr.io/dataherald-admin-console:latest
@@ -42,3 +41,4 @@ services:
 networks:
   dataherald_network:
     driver: bridge
+    name: dataherald_network
