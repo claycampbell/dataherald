@@ -1,6 +1,8 @@
 services:
   dataherald-engine:
-    image: dataherald.azurecr.io/dataherald-engine:latest
+    build:
+      context: ./services/engine
+      dockerfile: Dockerfile
     container_name: dataherald-engine
     ports:
       - "80:80"
@@ -23,7 +25,9 @@ services:
     platform: linux/amd64
 
   dataherald-enterprise:
-    image: dataherald.azurecr.io/dataherald-enterprise:latest
+    build:
+      context: ./services/enterprise
+      dockerfile: Dockerfile
     container_name: dataherald-enterprise
     networks:
       - dataherald_network
@@ -32,7 +36,9 @@ services:
     platform: linux/amd64
 
   dataherald-admin-console:
-    image: dataherald.azurecr.io/dataherald-admin-console:latest
+    build:
+      context: ./services/admin-console
+      dockerfile: Dockerfile
     container_name: dataherald-admin-console
     ports:
       - "3000:3000"
