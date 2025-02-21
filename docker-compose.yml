@@ -42,3 +42,4 @@ networks:
   dataherald_network:
     driver: bridge
     name: dataherald_network
+    external: true
