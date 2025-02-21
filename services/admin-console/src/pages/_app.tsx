@@ -11,7 +11,9 @@ import { cn } from '@/lib/utils'
 import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import { Nunito_Sans, Source_Code_Pro } from 'next/font/google'
-import { useUser } from './path/to/auth-context'
+
+// ✅ Correct import for UserProvider
+import { UserProvider } from '@auth0/nextjs-auth0/client';
 
 export const sourceCode = Source_Code_Pro({
   subsets: ['latin'],
@@ -28,6 +30,7 @@ export const mainFont = Nunito_Sans({
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
+    // ✅ Make sure UserProvider wraps the entire app
     <UserProvider>
       <AuthProvider>
         <WithMobileRedirect>
@@ -38,7 +41,15 @@ export default function App({ Component, pageProps }: AppProps) {
                   <WithAnalytics>
                     <WithApiFetcher>
                       <SelfServeProvider>
-                        <Component {...pageProps} />
+                        <div
+                          className={cn(
+                            sourceCode.variable,
+                            mainFont.variable,
+                            'font-main',
+                          )}
+                        >
+                          <Component {...pageProps} />
+                        </div>
                       </SelfServeProvider>
                     </WithApiFetcher>
                   </WithAnalytics>
